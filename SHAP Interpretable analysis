@@ -1,0 +1,63 @@
+import numpy as np
+import pandas as pd
+import lightgbm as lgb
+from sklearn.model_selection import train_test_split, KFold
+from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.preprocessing import MinMaxScaler
+import seaborn as sns
+import shap
+from matplotlib import pyplot as plt
+from imblearn.over_sampling import ADASYN
+# 读取Excel数据
+data = pd.read_excel(r'OB.xlsx')
+
+# 分离特征和目标变量
+scaler = MinMaxScaler()
+X = data.drop(['F'], axis=1)
+y = data['F'].astype(int)  # 确保目标变量是整数类型
+
+# 归一化处理特征变量
+X_scaled = scaler.fit_transform(X)
+
+# 不平衡数据集处理
+oversampler = ADASYN(random_state=123)
+X_resampled, y_resampled = oversampler.fit_resample(X_scaled, y)
+
+# 参数范围
+space ={'colsample_bytree': 0.7086925590200758, 'learning_rate': 0.2563310888963276, 'max_depth': 3, 'min_child_samples': 126, 'min_child_weight': 1, 'min_split_gain': 0.03861149875317878, 'n_estimators': 1463, 'num_leaves': 6, 'reg_alpha': 0.9817884342682052, 'reg_lambda': 0.22433734362947533, 'subsample': 0.7355642526125185}
+
+# 创建LightGBM模型
+model = lgb.LGBMClassifier(**space)
+model.fit(X_resampled, y_resampled)
+
+explainer = shap.Explainer(model, X_resampled)
+shap_values = explainer(X_resampled)
+
+X_original = scaler.inverse_transform(X_resampled)  # 修正逆缩放
+X_original = pd.DataFrame(X_original, columns=X.columns)
+
+# 绘制特定特征的SHAP依赖图
+plt.figure(figsize=(8, 8))
+shap.dependence_plot('SI-fluorite', shap_values.values, X_original, interaction_index='SI-fluorite', dot_size=50, show=False)
+plt.xlabel('SI-fluorite', fontname='Arial', weight='bold', fontsize=20)
+plt.ylabel('SHAP value', fontname='Arial', weight='bold', fontsize=18)
+plt.yticks(fontname='Arial', fontsize=16, weight='bold')
+plt.xticks(fontname='Arial', fontsize=14, weight='bold')
+plt.tight_layout()  # 调整图像边距
+plt.savefig(r'XXX\SI-fluorite.tif', dpi=500)
+plt.show()# same as other features
+
+# 绘制SHAP summary plot
+plt.figure(figsize=(8, 8))
+shap.summary_plot(shap_values, X_original, feature_names=X.columns, show=False)
+plt.xticks(fontname='Arial', fontsize=20, weight='bold')  # 指定字体和字号
+plt.yticks(fontname='Arial', fontsize=18, weight='bold')  # 指定字体和字号
+plt.xlabel('SHAP values', fontname='Arial', weight='bold', fontsize=20)
+plt.tight_layout()
+plt.savefig(r'XXX.tif', dpi=500)
+plt.show()
+# 设置全局字体样式和大小
+
+
+
+
